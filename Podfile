@@ -16,4 +16,9 @@ target 'Messenger' do
     # Pods for testing
   end
 
+pod 'Firebase/Core'
+pod 'Firebase/Auth' 
+pod 'Firebase/Database' 
+
+
 end
