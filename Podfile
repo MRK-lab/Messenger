@@ -1,24 +1,22 @@
-# Uncomment the next line to define a global platform for your project
-# platform :ios, '9.0'
+# Define a global platform for your project
+platform :ios, '13.5'
 
 target 'Messenger' do
-  # Comment the next line if you don't want to use dynamic frameworks
+  # Use dynamic frameworks
   use_frameworks!
 
   # Pods for Messenger
+  pod 'Firebase/Core'
+  pod 'Firebase/Auth'
+  pod 'Firebase/Database'
+  pod 'MessageKit'
+  pod 'JGProgressHUD'
+  pod 'RealmSwift' , '10.50.1'
+  pod 'SDWebImage'
 
-  target 'MessengerTests' do
-    inherit! :search_paths
-    # Pods for testing
-  end
-
-  target 'MessengerUITests' do
-    # Pods for testing
-  end
-
-pod 'Firebase/Core'
-pod 'Firebase/Auth' 
-pod 'Firebase/Database' 
-
+#pod 'FBSDKLoginKit'
+#pod 'GoogleSignIn'
+pod 'InputBarAccessoryView'
 
 end
+
