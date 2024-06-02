@@ -11,7 +11,7 @@ target 'Messenger' do
   pod 'Firebase/Database'
   pod 'MessageKit'
   pod 'JGProgressHUD'
-  pod 'RealmSwift' , '10.50.1'
+  pod 'RealmSwift' , '10.49.3'
   pod 'SDWebImage'
 
 #pod 'FBSDKLoginKit'
