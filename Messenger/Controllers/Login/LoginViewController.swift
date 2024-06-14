@@ -7,8 +7,11 @@
 
 import UIKit
 import FirebaseAuth
+import JGProgressHUD
 
 class LoginViewController: UIViewController {
+    
+    private let spinner = JGProgressHUD(style: .dark)
     
     // aşşağı kaydırmak için
     private let scrollView: UIScrollView = {
@@ -143,11 +146,18 @@ class LoginViewController: UIViewController {
             return
         }
         
+        spinner.show(in: view)
+        
         // Firebase log in
         
         FirebaseAuth.Auth.auth().signIn(withEmail: email, password: password, completion: { [weak self] authResunt, error in
+            
             guard let strongSelf = self else{
                 return
+            }
+            
+            DispatchQueue.main.async {
+                strongSelf.spinner.dismiss()
             }
             
             guard let result = authResunt, error == nil else{
@@ -156,6 +166,28 @@ class LoginViewController: UIViewController {
             }
             
             let user = result.user
+            
+            
+            
+            let safeEmail = DatabaseManager.safeEmail(emailAddress: email)
+            DatabaseManager.shared.getDataFor(path: safeEmail, completion: { result in
+                switch result {
+                case .success(let data):
+                    guard let userData = data as? [String: Any],
+                            let firstName = userData["first_name"] as? String,
+                          let lastName = userData["last_name"] as? String else {
+                        print("hata yeri olası bence")
+                        return
+                    }
+                    UserDefaults.standard.set("\(firstName) \(lastName)", forKey: "name")
+
+                case .failure(let error):
+                    print("Failed to read data with error \(error)")
+                }
+            })
+            
+            UserDefaults.standard.set(email, forKey: "email")
+            
             print("Logged In User \(user)")
             strongSelf.navigationController?.dismiss(animated: true, completion: nil)
         })
