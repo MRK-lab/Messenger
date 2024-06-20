@@ -42,7 +42,7 @@ class LoginViewController: UIViewController {
         field.leftView = UIView(frame: CGRect(x: 0, y: 0, width:5,
                                              height: 0))
         field.leftViewMode = .always
-        field.backgroundColor = .white
+        field.backgroundColor = .secondarySystemBackground
         
         return field
     }()
@@ -60,7 +60,7 @@ class LoginViewController: UIViewController {
         field.leftView = UIView(frame: CGRect(x: 0, y: 0, width:5,
                                              height: 0))
         field.leftViewMode = .always
-        field.backgroundColor = .white
+        field.backgroundColor = .secondarySystemBackground
         field.isSecureTextEntry = true
         return field
     }()
@@ -76,11 +76,20 @@ class LoginViewController: UIViewController {
         return button
     }()
 
+    private var loginObserver: NSObjectProtocol?
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         
+        loginObserver = NotificationCenter.default.addObserver(forName: .didLogNotification, object: nil, queue: .main, using: { [weak self] _ in
+            guard let strongSelf = self else {
+                return
+            }
+            strongSelf.navigationController?.dismiss(animated: true, completion: nil)
+        })
+        
         title = "Log In"
-        view.backgroundColor = .white // login arayüz rengi
+        view.backgroundColor = .systemBackground // login arayüz rengi
         
         // login ekranında sağ tarafta navigation bar  ayarları ve didTapRegister fonksiyonunu kullanacak
         navigationItem.rightBarButtonItem = UIBarButtonItem(title: "Register",
@@ -137,6 +146,7 @@ class LoginViewController: UIViewController {
     }
     
     @objc private func loginButtonTapped(){
+        
         emailField.resignFirstResponder()
         passwordField.resignFirstResponder()
         

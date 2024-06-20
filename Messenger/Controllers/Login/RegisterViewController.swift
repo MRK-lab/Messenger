@@ -45,7 +45,7 @@ class RegisterViewController: UIViewController {
         field.leftView = UIView(frame: CGRect(x: 0, y: 0, width:5,
                                              height: 0))
         field.leftViewMode = .always
-        field.backgroundColor = .white
+        field.backgroundColor = .secondarySystemBackground
         
         return field
     }()
@@ -62,7 +62,7 @@ class RegisterViewController: UIViewController {
         field.leftView = UIView(frame: CGRect(x: 0, y: 0, width:5,
                                              height: 0))
         field.leftViewMode = .always
-        field.backgroundColor = .white
+        field.backgroundColor = .secondarySystemBackground
         
         return field
     }()
@@ -80,7 +80,7 @@ class RegisterViewController: UIViewController {
         field.leftView = UIView(frame: CGRect(x: 0, y: 0, width:5,
                                              height: 0))
         field.leftViewMode = .always
-        field.backgroundColor = .white
+        field.backgroundColor = .secondarySystemBackground
         
         return field
     }()
@@ -97,7 +97,7 @@ class RegisterViewController: UIViewController {
         field.leftView = UIView(frame: CGRect(x: 0, y: 0, width:5,
                                              height: 0))
         field.leftViewMode = .always
-        field.backgroundColor = .white
+        field.backgroundColor = .secondarySystemBackground
         field.isSecureTextEntry = true
         return field
     }()
@@ -118,7 +118,7 @@ class RegisterViewController: UIViewController {
         super.viewDidLoad()
         
         title = "Log In"
-        view.backgroundColor = .white // login arayüz rengi
+        view.backgroundColor = .systemBackground // login arayüz rengi
         
         // login ekranında sağ tarafta navigation bar  ayarları ve didTapRegister fonksiyonunu kullanacak
         navigationItem.rightBarButtonItem = UIBarButtonItem(title: "Register",
@@ -246,6 +246,9 @@ class RegisterViewController: UIViewController {
                 
                 //let user = result.user
                 //print("Create User: \(user)")
+                
+                UserDefaults.standard.setValue(email, forKey: "email")
+                UserDefaults.standard.setValue("\(firstName) \(lastName)", forKey: "name")
                 
                 let chatUser = ChatAppUser(firstName: firstName,
                                            lastName: lastName,

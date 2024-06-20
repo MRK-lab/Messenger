@@ -12,6 +12,7 @@ import InputBarAccessoryView
 import SDWebImage
 import AVFoundation // video görünümü için
 import AVKit // video görünümü için
+import CoreLocation // konum için
 
 
 struct Message: MessageType {
@@ -54,6 +55,7 @@ struct Sender: SenderType {
     public var displayName: String
 }
 
+// resim ve video göndermek için
 struct Media : MediaItem {
     var url: URL?
     var image: UIImage?
@@ -61,7 +63,16 @@ struct Media : MediaItem {
     var size: CGSize
 }
 
+// konum göndermek için
+struct Location: LocationItem {
+    var location: CLLocation
+    var size: CGSize
+}
+
 class ChatViewController: MessagesViewController {
+    
+    private var senderPhotoUrl: URL?
+    private var otherUserPhotoUrl: URL?
     
     // messageid oluşumunda kullanmak için gereken date verisi için
     public static let dateFormatter: DateFormatter = {
@@ -147,9 +158,25 @@ class ChatViewController: MessagesViewController {
         actionSheet.addAction(UIAlertAction(title: "Audio", style: .default, handler: {  _ in
             
         }))
+        actionSheet.addAction(UIAlertAction(title: "Location", style: .default, handler: { [weak self]  _ in
+            self?.presentLocationPicker()
+        }))
         actionSheet.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: nil))
         
         present(actionSheet, animated: true)
+    }
+    
+    private func presentLocationPicker() {
+        let vc = LocationPickerViewController()
+        vc.navigationItem.largeTitleDisplayMode = .never
+        vc.copmletion = { [weak self] selectedCoordinates in
+            
+            let longitude: Double = selectedCoordinates.longitude
+            let latitude: Double = selectedCoordinates.latitude
+            
+            print("long= \(longitude) | lat= \(latitude)")
+        }
+        navigationController?.pushViewController(vc, animated: true)
     }
     
     
@@ -347,7 +374,10 @@ extension ChatViewController: UIImagePickerControllerDelegate, UINavigationContr
             })
         }
     }
+    
 }
+
+
 
 extension ChatViewController: InputBarAccessoryViewDelegate {
     func inputBar(_ inputBar: InputBarAccessoryView, didPressSendButtonWith text: String) {
@@ -373,6 +403,8 @@ extension ChatViewController: InputBarAccessoryViewDelegate {
                 if success {
                     print("message sent")
                     self?.isNewConversation = false
+                    // gönderdilten sonra silinmesi için
+                    self?.messageInputBar.inputTextView.text = nil
                 }
                 else {
                     print("failed to send")
@@ -384,8 +416,9 @@ extension ChatViewController: InputBarAccessoryViewDelegate {
                 return
             }
             // append to existing conversation data
-            DatabaseManager.shared.sendMessage(to: conversationId, otherUserEmail: otherUserEmail, name: name, newMessage: mmessage, completion: { success in
+            DatabaseManager.shared.sendMessage(to: conversationId, otherUserEmail: otherUserEmail, name: name, newMessage: mmessage, completion: { [weak self] success in
                 if success {
+                    self?.messageInputBar.inputTextView.text = nil
                     print("message sent")
                 }
                 else {
@@ -448,6 +481,80 @@ extension ChatViewController: MessagesDataSource, MessagesLayoutDelegate, Messag
         }
         
     }
+    
+    // mesajlaşma renkleri için
+    func backgroundColor(for message: MessageType, at indexPath: IndexPath, in messagesCollectionView: MessagesCollectionView) -> UIColor {
+        let sender = message.sender
+        if sender.senderId == selfSender?.senderId {
+            // our message that we've sent
+            return .link
+        }
+        return .secondarySystemBackground
+    }
+
+    // mesajlaşmada avatarların gözükmesi için
+    func configureAvatarView(_ avatarView: AvatarView, for message: MessageType, at indexPath: IndexPath, in messagesCollectionView: MessagesCollectionView) {
+        let sender = message.sender
+        
+        avatarView.image = nil
+        
+        if sender.senderId == selfSender?.senderId {
+            // show our image
+            if let currentUserImageURL = self.senderPhotoUrl {
+                avatarView.sd_setImage(with: currentUserImageURL, completed: nil)
+            }
+            else {
+                // images/safeemail_profile_picture.png
+                
+                guard let email = UserDefaults.standard.value(forKey: "email") as? String else {
+                    return
+                }
+                
+                let safeEmail = DatabaseManager.safeEmail(emailAddress: email)
+                let path="images/\(safeEmail)_profile_picture.png"
+                
+                // fetch url
+                StorageManager.shared.downloadURL(for: path, completion: { [weak self] result in
+                    switch result {
+                    case .success(let url):
+                        self?.senderPhotoUrl = url
+                        DispatchQueue.main.async {
+                            avatarView.sd_setImage(with: url, completed: nil)
+                        }
+                    case .failure(let error):
+                        print("\(error)")
+                    }
+                })
+            }
+        }
+        else {
+            // other user image
+            if let otherUserPhotoUrl = self.otherUserPhotoUrl {
+                avatarView.sd_setImage(with: otherUserPhotoUrl, completed: nil)
+            }
+            else {
+                // fetch url
+                let email = self.otherUserEmail
+                
+                let safeEmail = DatabaseManager.safeEmail(emailAddress: email)
+                let path="images/\(safeEmail)_profile_picture.png"
+                
+                // fetch url
+                StorageManager.shared.downloadURL(for: path, completion: { [weak self] result in
+                    switch result {
+                    case .success(let url):
+                        self?.otherUserPhotoUrl = url
+                        DispatchQueue.main.async {
+                            avatarView.sd_setImage(with: url, completed: nil)
+                        }
+                    case .failure(let error):
+                        print("\(error)")
+                    }
+                })
+            }
+        }
+    }
+    
 }
 
 // gönderilen resmi büyük ekranda açmak için

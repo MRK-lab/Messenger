@@ -49,6 +49,8 @@ class ConversationViewController: UIViewController {
         return label
     }()
     
+    private var loginObserve: NSObjectProtocol?
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         
@@ -61,8 +63,17 @@ class ConversationViewController: UIViewController {
         view.addSubview(tableView)
         view.addSubview(noConversationsLabel)
         setupTableView()
-        fetchConversation()
+        //fetchConversation() // açılış ekranında hiç mesajlaşma yoksa durumunu düzelmek için
         startListeningForConversations()
+        
+        // kullanıcı çıkış yapınca eski kullanıcını verileri kaybolup yeni kullanıcının verilerinin gelmesi için
+        loginObserve = NotificationCenter.default.addObserver(forName: .didLogNotification, object: nil, queue: .main, using: { [weak self] _ in
+            guard let strongSelf = self else {
+                return
+            }
+            strongSelf.startListeningForConversations()
+        })
+        
     }
     
     // kayıtlı konuşmaları dinlemek için kullanılır
@@ -70,13 +81,23 @@ class ConversationViewController: UIViewController {
         guard let email = UserDefaults.standard.value(forKey: "email") as? String else {
             return
         }
+        
+        if let observer = loginObserve {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        
         let safeEmail = DatabaseManager.safeEmail(emailAddress: email)
         DatabaseManager.shared.getAllConversations(for: safeEmail, completion: { [weak self] result in
             switch result {
             case .success(let conversations):
                 guard !conversations.isEmpty else {
+                    self?.tableView.isHidden = true
+                    self?.noConversationsLabel .isHidden = false
+
                     return
                 }
+                self?.noConversationsLabel.isHidden = true
+                self?.tableView.isHidden = false
                 self?.conversations = conversations
                 
                 DispatchQueue.main.async {
@@ -85,17 +106,36 @@ class ConversationViewController: UIViewController {
                 
                 
             case .failure(let error):
+                self?.tableView.isHidden = true
+                self?.noConversationsLabel .isHidden = false
                 print("failed to get convo: \(error)")
             }
         })
     }
     
     // yeni bir konuşma batlatmak için
+    // arama kısmında mevcut sohbeti getirir
     @objc private func didTapComposeButton() {
         let vc = NewConversationViewController()
         vc.completion = { [weak self] result in
-            print("\(result)")
-            self?.createNewConversation(result: result)
+            guard let strongSelf = self else {
+                return
+            }
+            
+            let currentConversations = strongSelf.conversations
+            
+            if let targetConversaiton = currentConversations.first(where: {
+                $0.otherUserEmail == DatabaseManager.safeEmail(emailAddress: result.email)
+            }) {
+                let vc = ChatViewController(with: targetConversaiton.otherUserEmail, id: targetConversaiton.id)
+                vc.isNewConversation = false
+                vc.title = targetConversaiton.name
+                vc.navigationItem.largeTitleDisplayMode = .never
+                strongSelf.navigationController?.pushViewController(vc, animated: true)
+            }
+            else {
+                strongSelf.createNewConversation(result: result)
+            }
         }
         let navVC = UINavigationController(rootViewController: vc)
         present(navVC, animated: true)
@@ -103,18 +143,40 @@ class ConversationViewController: UIViewController {
     
     private func createNewConversation(result: SearchResult) {
         let name = result.name
-        let email = result.email
+        let email = DatabaseManager.safeEmail(emailAddress: result.email)
         
-        let vc = ChatViewController(with: email, id: nil)
-        vc.isNewConversation = true
-        vc.title = name
-        vc.navigationItem.largeTitleDisplayMode = .never
-        navigationController?.pushViewController(vc, animated: true)
+        // check in database if conversaion with there two users exists
+        // if it dors, resuel conversaion id
+        // other wise use existing code
+        
+        DatabaseManager.shared.conversationExists(with: email, completion: { [weak self] result in
+            guard let strogSelf = self else {
+                return
+            }
+            switch result {
+            case .success(let conversationId):
+                let vc = ChatViewController(with: email, id: conversationId)
+                vc.isNewConversation = false
+                vc.title = name
+                vc.navigationItem.largeTitleDisplayMode = .never
+                strogSelf.navigationController?.pushViewController(vc, animated: true)
+            case .failure(_):
+                let vc = ChatViewController(with: email, id: nil)
+                vc.isNewConversation = true
+                vc.title = name
+                vc.navigationItem.largeTitleDisplayMode = .never
+                strogSelf.navigationController?.pushViewController(vc, animated: true)
+            }
+        })
     }
     
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         tableView.frame = view.bounds
+        noConversationsLabel.frame = CGRect(x: 10,
+                                            y: (view.height-100)/2,
+                                            width: view.width-20,
+                                            height: 100)
     }
     
     override func viewDidAppear(_ animated: Bool) {
@@ -138,9 +200,7 @@ class ConversationViewController: UIViewController {
         tableView.dataSource = self
     }
     
-    private func fetchConversation() {
-        tableView.isHidden = false
-    }
+    
         
 }
 
@@ -160,7 +220,11 @@ extension ConversationViewController: UITableViewDelegate, UITableViewDataSource
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         let model = conversations[indexPath.row]
-
+        openConversaiton(model)
+    }
+    
+    // mesajlaşmaya hep aynı kutucuk içinden devam edebilmek için
+    func openConversaiton(_ model: Conversation) {
         let vc = ChatViewController(with: model.otherUserEmail, id: model.id)
         vc.title = model.name
         vc.navigationItem.largeTitleDisplayMode = .never
@@ -171,5 +235,36 @@ extension ConversationViewController: UITableViewDelegate, UITableViewDataSource
         return 120
     }
     
+    
+    // Silme işlemi
+    func tableView(_ tableView: UITableView, editingStyleForRowAt indexPath: IndexPath) -> UITableViewCell.EditingStyle {
+        return .delete
+    }
+
+    func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
+        if editingStyle == .delete {
+            // begin delete
+            let conversationId = conversations[indexPath.row].id
+            
+            DatabaseManager.shared.deleteConversation(conversationId: conversationId, completion: { [weak self] success in
+                guard let strongSelf = self else { return }
+                
+                if success {
+                    // Check if indexPath.row is within the range
+                    if indexPath.row < strongSelf.conversations.count {
+                        strongSelf.conversations.remove(at: indexPath.row)
+                        
+                        // Begin and end updates inside the completion block
+                        DispatchQueue.main.async {
+                            tableView.beginUpdates()
+                            tableView.deleteRows(at: [indexPath], with: .left)
+                            tableView.endUpdates()
+                        }
+                    }
+                }
+            })
+        }
+    }
+
 }
 
