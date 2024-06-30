@@ -159,7 +159,6 @@ class LoginViewController: UIViewController {
         spinner.show(in: view)
         
         // Firebase log in
-        
         FirebaseAuth.Auth.auth().signIn(withEmail: email, password: password, completion: { [weak self] authResunt, error in
             
             guard let strongSelf = self else{
@@ -177,8 +176,6 @@ class LoginViewController: UIViewController {
             
             let user = result.user
             
-            
-            
             let safeEmail = DatabaseManager.safeEmail(emailAddress: email)
             DatabaseManager.shared.getDataFor(path: safeEmail, completion: { result in
                 switch result {
@@ -186,7 +183,6 @@ class LoginViewController: UIViewController {
                     guard let userData = data as? [String: Any],
                             let firstName = userData["first_name"] as? String,
                           let lastName = userData["last_name"] as? String else {
-                        print("hata yeri olası bence")
                         return
                     }
                     UserDefaults.standard.set("\(firstName) \(lastName)", forKey: "name")

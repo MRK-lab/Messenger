@@ -17,8 +17,6 @@ target 'Messenger' do
   pod 'RealmSwift' , '10.49.3'
   pod 'SDWebImage'
 
-#pod 'FBSDKLoginKit'
-#pod 'GoogleSignIn'
 pod 'InputBarAccessoryView'
 
 end
